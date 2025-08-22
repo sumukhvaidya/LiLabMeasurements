@@ -34,6 +34,13 @@ import mdt69x
 import time
 import keyboard
 
+def plot_this_xy(xdata, ydata, ax, title, xlabel, ylabel, linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2):
+    ax.set_title(title, fontsize=20)
+    ax.plot(xdata, ydata, linestyle = linestyle, color = color, linewidth = linewidth, marker = marker, markersize = markersize)
+    ax.tick_params(axis='both', which='major', labelsize=14)
+    ax.set_xlabel(xlabel, fontsize=16)
+    ax.set_ylabel(ylabel, fontsize=16)
+
 class ODMR:
     def __init__(self, config, ps=None, sg386=None, rm=None):
         """
@@ -110,7 +117,8 @@ class ODMR:
         # Create pulse sequence
         seq = self.create_pulse_sequence()
         if plot_sequence:
-            seq.plot()
+            # seq.plot()
+            pass
         
         # Connect to FPGA and run measurement
         bitfile_loc = r"C:\Users\Li_Lab_B12\Desktop\DataSumukh\250731_PythonCode\bitfiles\everythingdaq_FPGATarget2_FPGAESRver5_RELKYtnkXk4.lvbitx"
@@ -135,30 +143,40 @@ class ODMR:
         """Run ODMR measurement over a frequency range"""
         self.validate_instruments()
         
-        contrast = np.zeros(len(freq_range))
+        
         all_contrast = np.zeros((self.config['num_avgs'],len(freq_range)))
         avg_contrast = np.zeros(len(freq_range))
         all_counts = np.zeros((self.config['num_avgs'],len(freq_range)))
         avg_counts = np.zeros(len(freq_range))
-        mw_on = np.zeros(len(freq_range))
-        mw_off = np.zeros(len(freq_range))
         
-        for j in range(self.config['num_avgs']):
-            for i, freq in enumerate(tqdm(freq_range, desc="Frequency sweep")):
+        
+        for j in tqdm(range(self.config['num_avgs'])):
+            contrast = np.zeros(len(freq_range))
+            mw_on = np.zeros(len(freq_range))
+            mw_off = np.zeros(len(freq_range))
+
+            # for i, freq in enumerate(tqdm(freq_range, desc="Frequency sweep")):
+            for i, freq in enumerate(freq_range):
                 self.config['freq'] = freq
                 plot_seq = plot_sequence_first and i == 0
                 
+                if keyboard.is_pressed('q'):
+                    print(f"\nMeasurement stopped by user at frequency {freq:.2e} Hz")
+                    # Return partial results up to current point
+                    return freq_range, avg_contrast, all_contrast, avg_counts, all_counts
+
                 try:
                     contrast[i], mw_on[i], mw_off[i] = self.get_contrast(freq, plot_sequence=plot_seq)
-                    fig, ax = plt.subplots(1, 2, figsize=(16,6))
+                    fig, ax = plt.subplots(2, 2, figsize=(16,12))
                     clear_output(wait=True)
-                    ax[0].set_title('ODMR Contrast', fontsize=20)
-                    ax[0].plot(freq_range[:i], contrast[:i], marker='o', markersize=2, linestyle='-', linewidth=2, color='blue')
-                    ax[0].tick_params(axis='both', which='major', labelsize=14)
-                    ax[0].set_xlabel('Frequency (Hz)', fontsize=16)
-                    ax[0].set_ylabel('Contrast', fontsize=16)
-                    # ax[1].text(0.5, 0.5, 'Counts = \n'+str(ydata[-1]), fontsize=80, ha='center', va='center')
-                    # ax[1].axis('off')
+                    fig.suptitle(f'ODMR Measurement - Run {j+1}/{self.config["num_avgs"]}. Press Q to stop', fontsize=22, y=0.95)
+                    
+                    plot_this_xy(freq_range[:i], contrast[:i], ax = ax[0][0], title = 'Current Run ODMR Contrast', xlabel = 'Frequency (Hz)', ylabel = 'Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+                    plot_this_xy(freq_range, avg_contrast, ax = ax[0][1], title = 'Average ODMR Contrast', xlabel = 'Frequency (Hz)', ylabel = 'Average Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+                    
+                    plot_this_xy(freq_range[:i], mw_on[:i]+mw_off[:i], ax = ax[1][0], title = 'Average ODMR Counts', xlabel = 'Frequency (Hz)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+                    plot_this_xy(freq_range, avg_counts, ax = ax[1][1], title = 'Average ODMR Counts', xlabel = 'Frequency (Hz)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+
                     plt.show()
                     plt.pause(0.01)
                 except Exception as e:
@@ -169,7 +187,7 @@ class ODMR:
             avg_counts = (avg_counts*(j)+mw_on+mw_off)/(j+1)
             all_counts[j,:] = mw_on+mw_off
         
-        return freq_range, avg_contrast, all_contrast,
+        return freq_range, avg_contrast, all_contrast, avg_counts, all_counts
     
     def update_config(self, **kwargs):
         """Update configuration parameters"""
