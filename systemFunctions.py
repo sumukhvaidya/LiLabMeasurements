@@ -60,7 +60,7 @@ sys.stdout=trap
 
 #### ODMR contrast function definitions
 def getODMRContrast(config):
-    bitfile_loc="C:/NDController-ver2/FPGA Bitfiles/everythingdaq_FPGATarget2_FPGAESRver5_RELKYtnkXk4.lvbitx"
+    bitfile_loc=r"C:\Users\Li_Lab_B12\Desktop\DataSumukh\250731_PythonCode\bitfiles\everythingdaq_FPGATarget2_FPGAESRver5_RELKYtnkXk4.lvbitx"
 
     #### Give the different pulse parameters
     aomvolt=config['aomvolt'] # !!! In VOLTS, ONLY 0-1V
@@ -73,15 +73,15 @@ def getODMRContrast(config):
     mw_power=config['mw_power'] # dBm
 
     # #### Connect to Pulsestreamer and setup the pulses
-    pulsestreamer_ip='169.254.8.2'
+    pulsestreamer_ip='192.168.0.100'
     ps=pulsestreamer.PulseStreamer(pulsestreamer_ip)
     ps.reset()
-    aompatt=[(96,aomvolt)] # AOM analog modulation voltage, use to control 532nm laser power
+    # aompatt=[(96,aomvolt)] # AOM analog modulation voltage, use to control 532nm laser power
     ch0patt=[(96,1)] # Keep the laser always ON for CW ODMR
     ch1patt=[(waitt,1), (countt,1), (addlt,1),(waitt,0), (countt,0), (addlt,0),(separationt,0)]  # Microwave
     ch2patt=[(waitt,0), (countt,1), (addlt,0),(waitt,0), (countt,1), (addlt,0),(separationt,0)]  # Counting
     seq=ps.createSequence()
-    seq.setAnalog(0,aompatt)
+    # seq.setAnalog(0,aompatt)
     seq.setDigital(0,ch0patt)
     seq.setDigital(1,ch1patt)
     seq.setDigital(2,ch2patt)

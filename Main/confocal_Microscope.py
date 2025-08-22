@@ -24,7 +24,8 @@ class confocal_Microscope:
                 'count_time (ms)': 10,
                 'LED': False
             }
-        bitfile_path =r'C:\Users\Li_Lab_B12\Desktop\NDController-ver2\FPGA Bitfiles\everythingdaq_FPGATarget2_FPGAConfocalver5_EY5LFETs4tQ.lvbitx'
+        # bitfile_path =r'C:\Users\Li_Lab_B12\Desktop\NDController-ver2\FPGA Bitfiles\everythingdaq_FPGATarget2_FPGAConfocalver5_EY5LFETs4tQ.lvbitx'
+        bitfile_path =r'C:\Users\Li_Lab_B12\Desktop\DataSumukh\250731_PythonCode\bitfiles\everythingdaq_FPGATarget2_FPGAConfocalver5_EY5LFETs4tQ.lvbitx'
         self.session = nifpga.Session(bitfile=bitfile_path, resource='RIO0')
         if reset:
             self.session.reset()
