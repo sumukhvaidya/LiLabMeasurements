@@ -64,7 +64,13 @@ class ODMR:
         aomvolt = aomvolt or self.config['aomvolt']
         
         # Create pulse sequence
-        ch0patt = [(96, 1)]  # Laser always ON
+        ch0patt = [(self.config['wait_t'], 1), 
+                   (self.config['count_t'], 1), 
+                   (self.config['addl_t'], 1),
+                   (self.config['wait_t'], 1), 
+                   (self.config['count_t'], 1), 
+                   (self.config['addl_t'], 1),
+                   (self.config['separation_t'], 1)]  # Laser always ON
         ch1patt = [(self.config['wait_t'], 1), 
                    (self.config['count_t'], 1), 
                    (self.config['addl_t'], 1),
