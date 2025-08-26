@@ -126,13 +126,24 @@ class ODMR:
         with nifpga.Session(bitfile=bitfile_loc, resource="RIO0") as session:
             session.reset()
             session.run()
+
+            # Calculate x, y voltage for fixing position
+            # xy_volts = np.array([
+            # (config['position'][0] - config['samples_per_axis'] // 2) * config['scale'],
+            # (config['position'][1] - config['samples_per_axis'] // 2) * config['scale']])
+            #  # Write the position to the FPGA
+            # host2target = session.fifos['FIFO_Host2Target']
+            # host2target.write(xy_volts)
+
+            # Setup readout of the counts
             target2host = session.fifos['FIFO_target2host']
             target2host.configure(self.config['pulsenum'])
             target2host.start()
             
-            self.ps.stream(seq, n_runs=int(self.config['pulsenum']/2))
-            read_value = target2host.read(self.config['pulsenum'], 1000)
-            target2host.stop()
+            
+            self.ps.stream(seq, n_runs=int(self.config['pulsenum']/2)) # Run the experiment
+            read_value = target2host.read(self.config['pulsenum'], 1000) # Read the counts as an array
+            target2host.stop() # Stop the register
             
             counts = read_value[0]
             contrast = sum(counts[0::2]) / sum(counts[1::2])
