@@ -1,20 +1,3 @@
-# import numpy as np
-# import time
-# import scipy
-# import matplotlib
-# import matplotlib.pyplot as plt
-# import pulsestreamer
-# import nifpga
-# import pyvisa
-# import serial
-# import io
-# import dev.systemFunctions as systemFunctions
-# from IPython.display import clear_output
-# from tqdm import tqdm
-# import sys
-# import mdt69x
-# import time
-# import keyboard
 
 import numpy as np
 import time
@@ -128,12 +111,14 @@ class ODMR:
             session.run()
 
             # Calculate x, y voltage for fixing position
-            # xy_volts = np.array([
-            # (config['position'][0] - config['samples_per_axis'] // 2) * config['scale'],
-            # (config['position'][1] - config['samples_per_axis'] // 2) * config['scale']])
-            #  # Write the position to the FPGA
+            xy_volts = np.array([
+            (self.config['position'][0] - self.config['samples_per_axis'] // 2) * self.config['scale'],
+            (self.config['position'][1] - self.config['samples_per_axis'] // 2) * self.config['scale']])
+             # Write the position to the FPGA
             # host2target = session.fifos['FIFO_Host2Target']
             # host2target.write(xy_volts)
+            session.registers['x'].write(xy_volts[0]) 
+            session.registers['y'].write(xy_volts[1]) 
 
             # Setup readout of the counts
             target2host = session.fifos['FIFO_target2host']
