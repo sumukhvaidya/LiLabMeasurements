@@ -17,6 +17,9 @@ import mdt69x
 import time
 import keyboard
 
+LiLabColormap =matplotlib.colors.ListedColormap(np.loadtxt('C:\\Users\\Li_Lab_B12\\Desktop\\DataSumukh\\250731_PythonCode\\Main\\colormap_LiLab.csv', delimiter=','), name='Lilab', N=None)
+
+
 def plot_this_xy(xdata, ydata, ax, title, xlabel, ylabel, linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2):
     ax.set_title(title, fontsize=20)
     ax.plot(xdata, ydata, linestyle = linestyle, color = color, linewidth = linewidth, marker = marker, markersize = markersize)
@@ -190,7 +193,33 @@ class ODMR:
             all_counts[j,:] = mw_on+mw_off
         
         return freq_range, avg_contrast, all_contrast, avg_counts, all_counts
+
+    def peakfinder_ODMR(self, config, window = 1, plotting=True):
+        if not config:
+            config = self.config
+        
+        center = config['position']
+        contrasts = np.zeros([window, window])
+        for i in range(window):
+            for j in range(window):
+                config['position'] = [center[0]+i-window//2, center[1]+j-window//2]
+                contrasts[i][j],_,_ = self.get_contrast()
     
+                if plotting:
+                    clear_output(wait=True)
+                    fig, ax = plt.subplots(figsize=(12,10))
+                    im = ax.imshow(contrasts, cmap=LiLabColormap, interpolation='nearest')
+                    fig.colorbar(im, label='Counts')
+                    fig.suptitle(f'Running...', fontsize=22, y=0.95)
+                    plt.pause(0.01)
+                    # plt.imshow(contrasts, cmap=LiLabColormap, extent=(center[0]-window//2, center[0]+window//2, center[1]-window//2, center[1]+window//2))
+
+        imax, jmax = np.unravel_index(np.argmax(abs(contrasts)), contrasts.shape)
+        config['position'] = [center[0]+imax-window//2, center[1]+jmax-window//2]
+        print('Best Contrast = ', self.get_contrast()[0])
+
+        return
+
     def update_config(self, **kwargs):
         """Update configuration parameters"""
         self.config.update(kwargs)
