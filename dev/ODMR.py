@@ -282,7 +282,7 @@ class ODMR:
 
         return tau_range, avg_contrast, all_contrast, avg_counts, all_counts
 
-    def peakfinder_ODMR(self, config, window = 1, plotting=True):
+    def peakfinder_ODMR(self, config = None, window = 1, plotting=True):
         if not config:
             config = self.config
         
