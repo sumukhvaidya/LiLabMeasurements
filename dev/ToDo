@@ -1,7 +1,13 @@
 To do:
 
 250826:
-1. ODMR Peak finder
+1. ODMR Peak finder- Change get_contrast to have its own config
 2. Confocal Peak finder
 3. Autofocus for sample
 4. Rabi, Ramsay, other pulse sequences
+
+250827:
+- Change get_contrast to have its own config
+- Confocal Peak finder
+- Autofocus for sample
+- Rabi, Ramsay, other pulse sequences
