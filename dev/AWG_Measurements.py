@@ -13,13 +13,13 @@ import io
 from IPython.display import clear_output
 from tqdm import tqdm
 import sys
-import mdt69x
+# import mdt69x
 import time
 import keyboard
 from zhinst.toolkit import Session,  Waveforms
 from zhinst.toolkit import CommandTable
 
-LiLabColormap =matplotlib.colors.ListedColormap(np.loadtxt('C:\\Users\\Li_Lab_B12\\Desktop\\DataSumukh\\250731_PythonCode\\Main\\colormap_LiLab.csv', delimiter=','), name='Lilab', N=None)
+LiLabColormap =matplotlib.colors.ListedColormap(np.loadtxt('C:\\Users\\LiLabDesktop\\Desktop\\Sumukh\\LiLabMeasurements\\LiLabMeasurements\\Main\\colormap_LiLab.csv', delimiter=','), name='Lilab', N=None)
 
 
 def plot_this_xy(xdata, ydata, ax, title, xlabel, ylabel, linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2):
@@ -116,10 +116,14 @@ class AWGMeasurement:
                     (self.config['delay_t'], 1),
                     (self.config['readout_t'], 1),]
             # CH1: MW
-            ch1patt = [(self.config['init_t']+self.config['wait_t']+self.config['delay_t']+self.config['readout_t'], 0),
-                    (self.config['init_t']+self.config['wait_t']+self.config['delay_t']-70-self.config['tau_set'], 0), 
-                    (self.config['tau_set'], 1),
-                    (self.config['readout_t']+70, 0),]
+            ch3patt =  [(self.config['init_t'], 1), 
+                    (self.config['wait_t'], 1), 
+                    (self.config['delay_t'], 1),
+                    (self.config['readout_t'], 1), 
+                    (self.config['init_t'], 1), 
+                    (self.config['wait_t'], 1), 
+                    (self.config['delay_t'], 1),
+                    (self.config['readout_t'], 1),] 
             # CH2: Counter
             ch2patt =  [(self.config['init_t'], 0), 
                     (self.config['wait_t'], 0), 
@@ -129,10 +133,19 @@ class AWGMeasurement:
                     (self.config['wait_t'], 0), 
                     (self.config['delay_t'], 0),
                     (self.config['readout_t'], 1),] 
+            ch3patt =  [(100, 1), 
+                    (self.config['wait_t']-100, 0), 
+                    (self.config['delay_t'], 0),
+                    (self.config['readout_t'], 0), 
+                    (self.config['init_t'], 0), 
+                    (self.config['wait_t'], 0), 
+                    (self.config['delay_t'], 0),
+                    (self.config['readout_t'], 1),] 
             seq = self.ps.createSequence()
             seq.setDigital(0, ch0patt)
             seq.setDigital(1, ch1patt)
             seq.setDigital(2, ch2patt)
+            seq.setDigital(3, ch3patt)
 
         return seq
     
@@ -237,26 +250,28 @@ class AWGMeasurement:
         
         return freq_range, avg_contrast, all_contrast, avg_counts, all_counts
     
-    def run_rabi_sweep(self, tau_range, plot_sequence_first=True):
+    def run_rabi_sweep(self,  plot_sequence_first=True):
         """Run Rabi measurement over a tau range"""
         self.validate_instruments()
 
-        self.sg386.write('MODL 1' ) # Turn on IQ Modulation
+        self.sg386.write('MODL 1' ) # Turn on IQ Modulation on SG386
+        self.sg386.write('FREQ '+str(self.config['freq']))
+        self.sg386.write('AMPR '+str(self.config['mw_power']))
 
+        ############ AWG setup ############
         # sequence parameters
         nu = self.config['nu'] #385 #385 #100 #100#388#385.7 # microwave frequency in MHz
         Fs = 2400 
         NUM_SUBCYCLES = self.config['n_points']  # Number of subcycles #Number of points
         tau_step0 =self.config['tau_step'] # tau step in us
         tau_start0 = self.config['tau_start'] # starting tau in us
-        t_tot = 78 # total time of a pulse frame in us 
+        # t_tot = 78 # total time of a pulse frame in us
+        t_tot = self.config['init_t'] + self.config['readout_t'] + self.config['wait_t'] + self.config['delay_t'] # total time of a pulse frame in us
         TT_tot = t_tot*NUM_SUBCYCLES*2  # total time need for measuring all data points once
-        t_initi = self.config['laser_initialization_time'] #laser initialization time
+        t_initi = self.config['init_t'] #laser initialization time
         A = 0.65#0.5087 #0.6 #0.3393#0.3#0.7
-
-
-
-        #A = 0.36 # 100 T=35ns
+        # A = 0.36 # 100 T=35ns
+        tau_range = np.linspace(tau_start0, tau_start0 + tau_step0 * (NUM_SUBCYCLES - 1), NUM_SUBCYCLES)  # tau range in us 
 
         # convert parameters
         TAU_STEP = int(tau_step0*Fs) # convert tau step into tick
@@ -334,6 +349,7 @@ class AWGMeasurement:
         self.awg.enable_sequencer(single=True)
 
 
+        # Initialize the arrays for storing and processing data
         all_contrast = np.zeros((self.config['num_avgs'],len(tau_range)))
         avg_contrast = np.zeros(len(tau_range))
         all_counts = np.zeros((self.config['num_avgs'],len(tau_range)))
@@ -345,39 +361,72 @@ class AWGMeasurement:
             # Implement readout from FPGA
             # Implement full pulse sequence contrast measurement
 
-
-            # contrast = np.zeros(len(tau_range))
-            # mw_on = np.zeros(len(tau_range))
-            # mw_off = np.zeros(len(tau_range))
+            counts = np.zeros(2*NUM_SUBCYCLES)
+            contrast = np.zeros(NUM_SUBCYCLES)
+            mw_on = np.zeros(NUM_SUBCYCLES)
+            mw_off = np.zeros(NUM_SUBCYCLES)
 
             # # for i, freq in enumerate(tqdm(freq_range, desc="Frequency sweep")):
             # for i, tau in enumerate(tau_range):
             #     self.config['tau_set'] = tau
             #     plot_seq = plot_sequence_first and i == 0
                 
-            #     if keyboard.is_pressed('q'):
-            #         print(f"\nMeasurement stopped by user at tau = {tau:.2e} ns")
-            #         # Return partial results up to current point
-            #         return tau_range, avg_contrast, all_contrast, avg_counts, all_counts
+            if keyboard.is_pressed('q'):
+                print(f"\nMeasurement stopped by user at j = {j:.2e} run")
+                # Return partial results up to current point
+                return tau_range, avg_contrast, all_contrast, avg_counts, all_counts
 
-            #     try:
+            try:
             #         # contrast[i], mw_on[i], mw_off[i] = self.get_contrast( plot_sequence=plot_seq)
+                seq = self.create_pulse_sequence(pulse_sequence='rabi')
+                bitfile_loc = r"C:\Users\Li_Lab_B12\Desktop\DataSumukh\250731_PythonCode\bitfiles\everythingdaq_FPGATarget2_FPGAESRver5_RELKYtnkXk4.lvbitx"
+                with nifpga.Session(bitfile=bitfile_loc, resource="RIO0") as session:
+                    session.reset()
+                    session.run()
+
+                    # Calculate x, y voltage for fixing position
+                    xy_volts = np.array([
+                    (config['position'][0] - config['samples_per_axis'] // 2) * config['scale'],
+                    (config['position'][1] - config['samples_per_axis'] // 2) * config['scale']])
+                    # Write the position to the FPGA
+                    # host2target = session.fifos['FIFO_Host2Target']
+                    # host2target.write(xy_volts)
+                    session.registers['x'].write(xy_volts[0]) 
+                    session.registers['y'].write(xy_volts[1]) 
+
+                    # Setup readout of the counts
+                    target2host = session.fifos['FIFO_target2host']
+                    target2host.configure(self.config['n_points']*2)
+                    target2host.start()
+
+
+                    self.ps.stream(seq, n_runs=(self.config['n_points'])//2) # Run the experiment
+                    read_value = target2host.read(self.config['n_points']*2, 1000) # Read the counts as an array
+                    target2host.stop() # Stop the register
                     
-            #         fig, ax = plt.subplots(2, 2, figsize=(16,12))
-            #         clear_output(wait=True)
-            #         fig.suptitle(f'Rabi Measurement - Run {j+1}/{self.config["num_avgs"]}. Press Q to stop', fontsize=22, y=0.95)
+                    counts = read_value[0]    
+                
+                mw_off = np.array(counts[:self.config['n_points']]) # First half no MW
+                mw_on = np.array(counts[self.config['n_points']:]) # Second half with MW
+                contrast = mw_on/(mw_off)
 
-            #         plot_this_xy(tau_range[:i], contrast[:i], ax = ax[0][0], title = 'Current Run Rabi Contrast', xlabel = 'Tau (ns)', ylabel = 'Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
-            #         plot_this_xy(tau_range, avg_contrast, ax = ax[0][1], title = 'Average Rabi Contrast', xlabel = 'Tau (ns)', ylabel = 'Average Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
 
-            #         plot_this_xy(tau_range[:i], mw_on[:i]+mw_off[:i], ax = ax[1][0], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
-            #         plot_this_xy(tau_range, avg_counts, ax = ax[1][1], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
 
-            #         plt.show()
-            #         plt.pause(0.01)
-            #     except Exception as e:
-            #         print(f"Error at tau {tau}: {e}")
-            #         continue
+                fig, ax = plt.subplots(2, 2, figsize=(16,12))
+                clear_output(wait=True)
+                fig.suptitle(f'Rabi Measurement - Run {j+1}/{self.config["num_avgs"]}. Press Q to stop', fontsize=22, y=0.95)
+
+                plot_this_xy(tau_range, contrast, ax = ax[0][0], title = 'Current Run Rabi Contrast', xlabel = 'Tau (ns)', ylabel = 'Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+                plot_this_xy(tau_range, avg_contrast, ax = ax[0][1], title = 'Average Rabi Contrast', xlabel = 'Tau (ns)', ylabel = 'Average Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+
+                plot_this_xy(tau_range, mw_on+mw_off, ax = ax[1][0], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+                plot_this_xy(tau_range, avg_counts, ax = ax[1][1], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+
+                plt.show()
+                plt.pause(0.01)
+            except Exception as e:
+                print(f"Error at j= {j}: {e}")
+                continue
             avg_contrast = (avg_contrast*(j)+contrast)/(j+1)
             all_contrast[j,:] = contrast
             avg_counts = (avg_counts*(j)+mw_on+mw_off)/(j+1)

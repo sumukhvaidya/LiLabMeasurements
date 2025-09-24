@@ -13,11 +13,11 @@ import io
 from IPython.display import clear_output
 from tqdm import tqdm
 import sys
-import mdt69x
+import dev.mdt69x as mdt69x
 import time
 import keyboard
 
-LiLabColormap =matplotlib.colors.ListedColormap(np.loadtxt('C:\\Users\\Li_Lab_B12\\Desktop\\DataSumukh\\250731_PythonCode\\Main\\colormap_LiLab.csv', delimiter=','), name='Lilab', N=None)
+LiLabColormap =matplotlib.colors.ListedColormap(np.loadtxt('C:\\Users\\LiLabDesktop\\Desktop\\Sumukh\\LiLabMeasurements\\LiLabMeasurements\\Main\\colormap_LiLab.csv', delimiter=','), name='Lilab', N=None)
 
 
 def plot_this_xy(xdata, ydata, ax, title, xlabel, ylabel, linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2):
@@ -148,7 +148,7 @@ class ODMR:
             pass
         
         # Connect to FPGA and run measurement
-        bitfile_loc = r"C:\Users\Li_Lab_B12\Desktop\DataSumukh\250731_PythonCode\bitfiles\everythingdaq_FPGATarget2_FPGAESRver5_RELKYtnkXk4.lvbitx"
+        bitfile_loc = r"C:\Users\LiLabDesktop\Desktop\Sumukh\LiLabMeasurements\LiLabMeasurements\bitfiles\everythingdaq_FPGATarget2_FPGAESRver5_RELKYtnkXk4.lvbitx"
         
         with nifpga.Session(bitfile=bitfile_loc, resource="RIO0") as session:
             session.reset()
