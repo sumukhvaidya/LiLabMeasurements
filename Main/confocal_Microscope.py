@@ -10,13 +10,15 @@ import pyvisa
 import serial
 import io
 import sys
-import mdt69x
+import mdt69x as mdt69x
 import time
 import keyboard
+import pulsestreamer
+
 
 
 class confocal_Microscope:
-    def __init__(self, reset=True, config=None):
+    def __init__(self, reset=True, config=None, ps=None):
         if config is None:
             self.config = {
                 'samples_per_axis': 21,
@@ -26,8 +28,9 @@ class confocal_Microscope:
             }
         else:
             self.config = config
+        self.ps = ps 
         # bitfile_path =r'C:\Users\Li_Lab_B12\Desktop\NDController-ver2\FPGA Bitfiles\everythingdaq_FPGATarget2_FPGAConfocalver5_EY5LFETs4tQ.lvbitx'
-        bitfile_path =r'C:\Users\Li_Lab_B12\Desktop\DataSumukh\250731_PythonCode\bitfiles\everythingdaq_FPGATarget2_FPGAConfocalver5_EY5LFETs4tQ.lvbitx'
+        bitfile_path =r'C:\Users\LiLabDesktop\Desktop\Sumukh\LiLabMeasurements\LiLabMeasurements\bitfiles\everythingdaq_FPGATarget2_FPGAConfocalver5_EY5LFETs4tQ.lvbitx'
         self.session = nifpga.Session(bitfile=bitfile_path, resource='RIO0')
         if reset:
             self.session.reset()
@@ -64,11 +67,12 @@ class confocal_Microscope:
 
         # set colormap
         # r'C:\Users\Li_Lab_B12\Desktop\DataSumukh\250731_PythonCode\colormap_LiLab.csv'
-        LiLabColormap =matplotlib.colors.ListedColormap(np.loadtxt('C:\\Users\\Li_Lab_B12\\Desktop\\DataSumukh\\250731_PythonCode\\Main\\colormap_LiLab.csv', delimiter=','), name='Lilab', N=None)
+        LiLabColormap =matplotlib.colors.ListedColormap(np.loadtxt('C:\\Users\\LiLabDesktop\\Desktop\\Sumukh\\LiLabMeasurements\\LiLabMeasurements\\Main\\colormap_LiLab.csv', delimiter=','), name='Lilab', N=None)
 
         # Perform the scan row by row
         self.get_counts(config['samples_per_axis']//2, config['samples_per_axis']//2, config) # Run this because the LED flashes briefly and will spoil data.
         time.sleep(0.05)
+        self.laser_on()
         for x in tqdm(range(config['samples_per_axis'])):
             for y in range(config['samples_per_axis']):
                 scan_data[x, y] = self.get_counts(x, y, config)  # Update the array with scanned data
@@ -86,6 +90,7 @@ class confocal_Microscope:
                 config['LED'] = not config['LED']
 
         self.get_counts(config['samples_per_axis']//2, config['samples_per_axis']//2, config)  # Final call to bring focus back to center
+        self.laser_off()
         return scan_data
 
     def simple_continuous_counter(self, x, y, config):
@@ -137,7 +142,15 @@ class confocal_Microscope:
         else:
             self.session.registers['AO4'].write(0)
         return
-
+    def laser_on(self):
+        """Turn the laser on."""
+        self.ps.constant(([0], 0, 0))
+        return
+    
+    def laser_off(self):
+        """Turn the laser off."""
+        self.ps.constant(([], 0, 0))
+        return
 # Finish this autofocus code!
     def autofocus(self, ):
         """

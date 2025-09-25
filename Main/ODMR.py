@@ -13,7 +13,7 @@ import io
 from IPython.display import clear_output
 from tqdm import tqdm
 import sys
-import dev.mdt69x as mdt69x
+import mdt69x as mdt69x
 import time
 import keyboard
 
@@ -185,6 +185,7 @@ class ODMR:
         """Run ODMR measurement over a frequency range"""
         self.validate_instruments()
         
+        peak_trial = self.config['freq']
         
         all_contrast = np.zeros((self.config['num_avgs'],len(freq_range)))
         avg_contrast = np.zeros(len(freq_range))
@@ -197,10 +198,14 @@ class ODMR:
             mw_on = np.zeros(len(freq_range))
             mw_off = np.zeros(len(freq_range))
 
+            if self.config['ODMR_Peakfinder'] and j%self.config['peakfinder_check_step']==0:
+                self.peakfinder_ODMR(plotting=False, freq = peak_trial)
+
             # for i, freq in enumerate(tqdm(freq_range, desc="Frequency sweep")):
             for i, freq in enumerate(freq_range):
                 self.config['freq'] = freq
                 plot_seq = plot_sequence_first and i == 0
+
                 
                 if keyboard.is_pressed('q'):
                     print(f"\nMeasurement stopped by user at frequency {freq:.2e} Hz")
@@ -282,16 +287,17 @@ class ODMR:
 
         return tau_range, avg_contrast, all_contrast, avg_counts, all_counts
 
-    def peakfinder_ODMR(self, config = None, window = 1, plotting=True):
+    def peakfinder_ODMR(self, config = None, plotting=True, freq = None):
         if not config:
             config = self.config
         
+        window = config['peakfinder_window']
         center = config['position']
         contrasts = np.ones([window, window])
         for i in range(window):
             for j in range(window):
                 config['position'] = [center[0]+i-window//2, center[1]+j-window//2]
-                contrasts[i][j],_,_ = self.get_contrast()
+                contrasts[i][j],_,_ = self.get_contrast( freq)
     
                 if plotting:
                     clear_output(wait=True)
@@ -305,6 +311,8 @@ class ODMR:
         imax, jmax = np.unravel_index(np.argmax(abs(contrasts-np.ones((window, window)))), contrasts.shape)
         config['position'] = [center[0]+imax-window//2, center[1]+jmax-window//2]
         print('Best Contrast = ', self.get_contrast()[0])
+        print('Best Position = ', config['position'])
+        time.sleep(.5)
 
         return
 
