@@ -111,9 +111,9 @@ class ODMR:
                     (self.config['readout_t'], 1),]
             # CH1: MW
             ch1patt = [(self.config['init_t']+self.config['wait_t']+self.config['delay_t']+self.config['readout_t'], 0),
-                    (self.config['init_t']+self.config['wait_t']+self.config['delay_t']-70-self.config['tau_set'], 0), 
+                    (self.config['init_t']+self.config['wait_t']+self.config['delay_t']-self.config['extra_delay']-self.config['tau_set'], 0), 
                     (self.config['tau_set'], 1),
-                    (self.config['readout_t']+70, 0),]
+                    (self.config['readout_t']+self.config['extra_delay'], 0),]
             # CH2: Counter
             ch2patt =  [(self.config['init_t'], 0), 
                     (self.config['wait_t'], 0), 
@@ -177,9 +177,12 @@ class ODMR:
             
             counts = read_value[0]
             # contrast = (sum(counts[0::2]) * (self.config['pulsenum']//2) / (sum(counts[1::2])*(self.config['pulsenum']//2+1)))
-            contrast = sum(counts[3::2]) / sum(counts[2::2])
-            
-        return contrast, sum(counts[0::2])*1e9/(len(counts)*self.config['count_t']), sum(counts[1::2])*1e9/(len(counts)*self.config['count_t'])
+            # contrast = sum(counts[1::2]) / sum(counts[0::2])
+        count_off = sum(counts[2::2])
+        count_on = sum(counts[3::2])   
+        contrast = count_on / count_off 
+        # return contrast, sum(counts[2::2])*1e9/(len(counts)*self.config['count_t']), sum(counts[3::2])*1e9/(len(counts)*self.config['count_t'])
+        return contrast, count_on, count_off
     
     def run_frequency_sweep(self, freq_range, plot_sequence_first=True):
         """Run ODMR measurement over a frequency range"""
@@ -237,7 +240,7 @@ class ODMR:
         return freq_range, avg_contrast, all_contrast, avg_counts, all_counts
     
     def run_rabi_sweep(self, tau_range, plot_sequence_first=True):
-        """Run ODMR measurement over a frequency range"""
+        """Run ODMR measurement over a Tau range"""
         self.validate_instruments()
 
 
@@ -284,6 +287,7 @@ class ODMR:
             all_contrast[j,:] = contrast
             avg_counts = (avg_counts*(j)+mw_on+mw_off)/(j+1)
             all_counts[j,:] = mw_on+mw_off
+            time.sleep(0.5)
 
         return tau_range, avg_contrast, all_contrast, avg_counts, all_counts
 
