@@ -110,7 +110,9 @@ class ODMR:
                     (self.config['delay_t'], 1),
                     (self.config['readout_t'], 1),]
             # CH1: MW
-            ch1patt = [(self.config['init_t']+self.config['wait_t']+self.config['delay_t']+self.config['readout_t'], 0),
+            ch1patt = [(self.config['init_t']+self.config['wait_t']+self.config['delay_t']-self.config['extra_delay']-self.config['tau_set'], 0),
+                    (self.config['tau_set'], 0),
+                    (self.config['readout_t']+self.config['extra_delay'], 0),
                     (self.config['init_t']+self.config['wait_t']+self.config['delay_t']-self.config['extra_delay']-self.config['tau_set'], 0), 
                     (self.config['tau_set'], 1),
                     (self.config['readout_t']+self.config['extra_delay'], 0),]
@@ -140,6 +142,7 @@ class ODMR:
         # Update frequency
         self.sg386.write(f'FREQ {freq}')
         self.sg386.write('AMPR '+str(config['mw_power']) )
+        self.sg386.write('MODL 0' ) # Ensure IQ Modulation is off
 
         # Create pulse sequence
         seq = self.create_pulse_sequence(pulse_sequence=self.config['pulse_sequence'])
@@ -166,20 +169,21 @@ class ODMR:
 
             # Setup readout of the counts
             target2host = session.fifos['FIFO_target2host']
-            target2host.configure(config['pulsenum'])
+            # target2host.configure(config['pulsenum'])
+            target2host.configure(10000)
             target2host.start()
 
 
-            self.ps.stream(seq, n_runs=(config['pulsenum'])//2) # Run the experiment
-            read_value = target2host.read(config['pulsenum'], 1000) # Read the counts as an array
+            self.ps.stream(seq, n_runs=(config['pulsenum'])) # Run the experiment
+            read_value = target2host.read(config['pulsenum']*2, 1000) # Read the counts as an array
             # read_value = target2host.read(config['pulsenum']*2, 1000) # Read the counts as an array
             target2host.stop() # Stop the register
             
             counts = read_value[0]
             # contrast = (sum(counts[0::2]) * (self.config['pulsenum']//2) / (sum(counts[1::2])*(self.config['pulsenum']//2+1)))
             # contrast = sum(counts[1::2]) / sum(counts[0::2])
-        count_off = sum(counts[2::2])
-        count_on = sum(counts[3::2])   
+        count_off = sum(counts[0::2])
+        count_on = sum(counts[1::2])   
         contrast = count_on / count_off 
         # return contrast, sum(counts[2::2])*1e9/(len(counts)*self.config['count_t']), sum(counts[3::2])*1e9/(len(counts)*self.config['count_t'])
         return contrast, count_on, count_off
@@ -275,7 +279,7 @@ class ODMR:
                     plot_this_xy(tau_range[:i], contrast[:i], ax = ax[0][0], title = 'Current Run Rabi Contrast', xlabel = 'Tau (ns)', ylabel = 'Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
                     plot_this_xy(tau_range, avg_contrast, ax = ax[0][1], title = 'Average Rabi Contrast', xlabel = 'Tau (ns)', ylabel = 'Average Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
 
-                    plot_this_xy(tau_range[:i], mw_on[:i]+mw_off[:i], ax = ax[1][0], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+                    plot_this_xy(tau_range[:i], mw_off[:i], ax = ax[1][0], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
                     plot_this_xy(tau_range, avg_counts, ax = ax[1][1], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
 
                     plt.show()
@@ -285,9 +289,22 @@ class ODMR:
                     continue
             avg_contrast = (avg_contrast*(j)+contrast)/(j+1)
             all_contrast[j,:] = contrast
-            avg_counts = (avg_counts*(j)+mw_on+mw_off)/(j+1)
-            all_counts[j,:] = mw_on+mw_off
-            time.sleep(0.5)
+            avg_counts = (avg_counts*(j)+mw_off)/(j+1)
+            all_counts[j,:] = mw_off
+            
+        # Plotting final data and averaged data
+        fig, ax = plt.subplots(2, 2, figsize=(16,12))
+        clear_output(wait=True)
+        fig.suptitle(f'Rabi Measurement - Run {j+1}/{self.config["num_avgs"]}. Press Q to stop', fontsize=22, y=0.95)
+
+        plot_this_xy(tau_range[:i], contrast[:i], ax = ax[0][0], title = 'Current Run Rabi Contrast', xlabel = 'Tau (ns)', ylabel = 'Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+        plot_this_xy(tau_range, avg_contrast, ax = ax[0][1], title = 'Average Rabi Contrast', xlabel = 'Tau (ns)', ylabel = 'Average Contrast', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+
+        plot_this_xy(tau_range[:i], mw_off[:i], ax = ax[1][0], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+        plot_this_xy(tau_range, avg_counts, ax = ax[1][1], title = 'Average Rabi Counts', xlabel = 'Tau (ns)', ylabel = 'Average Counts', linestyle = '-', color = 'blue', linewidth = 2, marker = 'o', markersize = 2)
+
+        plt.show()
+        plt.pause(0.01)
 
         return tau_range, avg_contrast, all_contrast, avg_counts, all_counts
 

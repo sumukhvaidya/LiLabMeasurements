@@ -12,7 +12,7 @@ import io
 from IPython.display import clear_output
 from tqdm import tqdm
 import sys
-import mdt69x
+import Main.mdt69x as mdt69x
 import time
 import keyboard
 
